@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=1" />
+  <link rel="stylesheet" href="style.css?v=2" />
 </head>
 <body>
 
@@ -382,9 +382,38 @@
 
     <section id="results" class="results-dashboard">
       <div class="glass-card">
+
+        <div class="results-top-grid">
+          <div class="metric-card">
+            <p class="metric-label">Protected Data Baseline</p>
+            <h3 id="protectedMetric">0 TB</h3>
+            <p class="metric-sub">Estimated protection-worthy data after dark data adjustment.</p>
+          </div>
+
+          <div class="metric-card">
+            <p class="metric-label">Estimated Backup Footprint</p>
+            <h3 id="footprintMetric">0 TB</h3>
+            <p class="metric-sub">Advisory storage estimate after retention, change rate, and growth assumptions.</p>
+          </div>
+
+          <div class="metric-card">
+            <p class="metric-label">Dark Data Risk</p>
+            <h3 id="darkMetric">Pending</h3>
+            <div id="darkBadge" class="mini-badge neutral">Pending</div>
+          </div>
+
+          <div class="metric-card">
+            <p class="metric-label">Recommended DR Model</p>
+            <h3 id="drMetric">Pending</h3>
+            <p class="metric-sub">Interpreted from RTO, RPO, workload criticality, and recovery expectation.</p>
+          </div>
+        </div>
+
+        <div id="maturityWarning" class="warning-banner" style="display:none;"></div>
+
         <div class="results-grid">
           <div class="score-card">
-            <p class="eyebrow-result">Estimated Backup Profile</p>
+            <p class="eyebrow-result">Sizing Summary</p>
             <h2 class="big-score" id="protectedDataDisplay">0 TB</h2>
             <div id="statusBadge" class="status-badge">Pending</div>
             <p class="summary-text" id="scoreSummary">
@@ -424,7 +453,7 @@
 
           <div class="insights-column">
             <div class="panel-block">
-              <h3>What This Means</h3>
+              <h3>Executive Interpretation</h3>
               <p id="meaningText"></p>
             </div>
 
@@ -434,7 +463,7 @@
             </div>
 
             <div class="panel-block">
-              <h4>Dark Data Risk</h4>
+              <h4>Dark Data Advisory</h4>
               <p id="darkDataText"></p>
             </div>
 
@@ -496,6 +525,44 @@
       return "Backup Only";
     }
 
+    function getBackupMaturityWarning(backupFrequency, restoreTesting, offsiteCopy, drPlan) {
+      const weakSignals = [];
+
+      if (backupFrequency === "none") weakSignals.push("no active backup coverage");
+      if (restoreTesting === "never") weakSignals.push("no restore testing");
+      if (offsiteCopy === "no") weakSignals.push("no offsite or cross-region protection");
+      if (drPlan === "no") weakSignals.push("no documented DR plan");
+
+      if (weakSignals.length >= 3) {
+        return {
+          level: "critical",
+          text: "Backup maturity is currently weak. The selected environment indicates " + weakSignals.join(", ") + ". Recovery assumptions may not be dependable until baseline protection and validation controls are improved."
+        };
+      }
+
+      if (weakSignals.length >= 1) {
+        return {
+          level: "moderate",
+          text: "Backup maturity needs attention. The current environment indicates " + weakSignals.join(", ") + ". Final DR expectations should be validated carefully before relying on aggressive recovery targets."
+        };
+      }
+
+      return null;
+    }
+
+    function applyDarkBadge(level) {
+      const badge = document.getElementById("darkBadge");
+      badge.className = "mini-badge";
+
+      if (level === "Low") badge.classList.add("low");
+      else if (level === "Medium") badge.classList.add("medium");
+      else if (level === "High") badge.classList.add("high");
+      else if (level === "Critical") badge.classList.add("critical");
+      else badge.classList.add("neutral");
+
+      badge.textContent = level;
+    }
+
     function calculateSizing() {
       const servers = parseFloat(document.getElementById("servers").value);
       const dataSize = parseFloat(document.getElementById("dataSize").value);
@@ -537,29 +604,21 @@
       const protectedData = roundTb(dataSize * (1 - darkData));
       let backupFootprint = protectedData * retention * (1 + changeRate) * growthRate * archiveRequired;
 
-      if (databaseIncluded === "yes") {
-        backupFootprint *= 1.08;
-      }
-
-      if (fileSharesIncluded === "yes") {
-        backupFootprint *= 1.05;
-      }
+      if (databaseIncluded === "yes") backupFootprint *= 1.08;
+      if (fileSharesIncluded === "yes") backupFootprint *= 1.05;
 
       backupFootprint = roundTb(backupFootprint);
 
       const darkDataRisk = getDarkDataRiskLabel(darkData, unknownOwner, obsoleteCopies);
       const drModel = getDrModel(rpo, rto, nearImmediate, criticality);
+      const maturityWarning = getBackupMaturityWarning(backupFrequency, restoreTesting, offsiteCopy, drPlan);
 
-      let badgeText = drModel;
       let badgeBg = "rgba(59, 130, 246, 0.16)";
       let badgeColor = "#60a5fa";
 
       if (drModel === "Backup Only") {
         badgeBg = "rgba(16, 185, 129, 0.16)";
         badgeColor = "#10b981";
-      } else if (drModel === "Pilot Light / Basic DR") {
-        badgeBg = "rgba(59, 130, 246, 0.16)";
-        badgeColor = "#60a5fa";
       } else if (drModel === "Warm Standby") {
         badgeBg = "rgba(245, 158, 11, 0.16)";
         badgeColor = "#f59e0b";
@@ -571,37 +630,42 @@
       let meaning = "";
       let darkDataText = "";
       let nextStep = "";
+      let drModelDetail = "";
 
       if (drModel === "Backup Only") {
-        meaning = "Current recovery expectations appear relatively tolerant, which suggests that a backup-only protection strategy may be sufficient for many workloads, provided backup coverage, restore confidence, and retention assumptions are valid.";
+        meaning = "Current recovery expectations appear relatively tolerant, which suggests that a backup-only protection strategy may be sufficient for many workloads, provided backup coverage, restore confidence, and retention assumptions are valid. This is usually more suitable for lower criticality services that can tolerate slower recovery.";
+        drModelDetail = "Backup Only is recommended because the selected recovery objectives indicate that slower restoration may still be acceptable. This model is generally more cost-efficient, but it depends heavily on reliable backup coverage, retention design, and restore confidence.";
       } else if (drModel === "Pilot Light / Basic DR") {
-        meaning = "Your recovery expectations suggest that backup-only protection may be too weak for some workloads. A basic DR posture or pilot light approach may provide a more realistic balance between resilience and cost.";
+        meaning = "Your recovery expectations suggest that backup-only protection may be too weak for some workloads. A basic DR posture or pilot light approach may provide a better balance between resilience and cost, especially where selected systems require faster restoration than traditional backup recovery can provide.";
+        drModelDetail = "Pilot Light / Basic DR is recommended because your RTO and RPO indicate the need for recovery faster than backup-only protection, but not necessarily a fully warm secondary environment for all systems.";
       } else if (drModel === "Warm Standby") {
-        meaning = "Your environment appears to require faster recovery than backup-only protection can typically provide. A warm standby approach may be more suitable for business-critical workloads that need a shorter recovery window.";
+        meaning = "Your environment appears to require faster recovery than backup-only protection can typically provide. A warm standby approach may be more suitable for business-critical workloads that need a shorter recovery window and more predictable restoration capability.";
+        drModelDetail = "Warm Standby is recommended because your selected recovery targets and workload criticality indicate a stronger need for operational continuity, faster restoration, and better recovery confidence during disruption.";
       } else {
-        meaning = "Your recovery expectations are aggressive and may require a highly resilient DR architecture. For critical services, a more structured active-passive model should be considered if near-immediate recovery is truly required.";
+        meaning = "Your recovery expectations are aggressive and may require a highly resilient DR architecture. For critical services, a more structured active-passive model should be considered if near-immediate recovery is genuinely required and downtime tolerance is minimal.";
+        drModelDetail = "Active-Passive is recommended because the selected RTO, RPO, and recovery expectation indicate that traditional backup recovery or lighter DR patterns may not consistently meet business requirements.";
       }
 
       if (darkDataRisk === "Low") {
-        darkDataText = "Dark data indicators appear relatively limited. Current stored data is more likely to reflect genuine protection needs, although ownership and retention should still be validated.";
+        darkDataText = "Dark data indicators appear relatively limited. Current stored data is more likely to reflect genuine protection needs, although ownership, retention, and archive scope should still be validated before final sizing is approved.";
       } else if (darkDataRisk === "Medium") {
-        darkDataText = "A moderate portion of current data may be redundant, unclassified, or no longer required. This may inflate backup estimates and should be reviewed before final sizing is locked in.";
+        darkDataText = "A moderate portion of current data may be redundant, unclassified, or no longer required. This may inflate backup estimates and should be reviewed before final sizing is locked in, particularly for long retention workloads.";
       } else if (darkDataRisk === "High") {
-        darkDataText = "A significant portion of current stored data may be redundant, duplicated, obsolete, or lacking ownership. Backup sizing may be materially overstated unless cleanup and retention review are completed.";
+        darkDataText = "A significant portion of current stored data may be redundant, duplicated, obsolete, or lacking ownership. Backup sizing may be materially overstated unless cleanup, ownership validation, and retention review are completed first.";
       } else {
-        darkDataText = "Dark data risk is critical. The current environment may contain a large proportion of data that does not clearly justify long-term protection. This can lead to unnecessary backup cost, slower recovery, and poor storage efficiency.";
+        darkDataText = "Dark data risk is critical. The current environment may contain a large proportion of data that does not clearly justify long-term protection. This can increase backup cost, reduce storage efficiency, and slow recovery operations substantially.";
       }
 
       if (darkDataRisk === "High" || darkDataRisk === "Critical") {
         nextStep = "Perform data cleanup, retention review, and ownership validation before finalizing backup sizing. Then validate whether the recommended DR model should apply to all workloads or only the most critical services.";
       } else if (drModel === "Backup Only") {
-        nextStep = "Validate retention assumptions, confirm restore testing frequency, and ensure that backup-only protection is acceptable for business-critical workloads.";
+        nextStep = "Validate retention assumptions, confirm restore testing frequency, and ensure that backup-only protection is acceptable for business-critical workloads. This is the right stage to verify whether all protected data genuinely requires the same policy.";
       } else if (drModel === "Pilot Light / Basic DR") {
-        nextStep = "Review workload dependencies, validate RTO/RPO expectations by application, and determine which systems need stronger DR posture beyond backup-only protection.";
+        nextStep = "Review workload dependencies, validate RTO and RPO expectations by application, and determine which systems need stronger DR posture beyond backup-only protection. Prioritize critical services rather than treating all systems equally.";
       } else if (drModel === "Warm Standby") {
-        nextStep = "Assess workload dependencies, validate the feasibility of warm standby architecture, and identify which services require accelerated recovery versus standard backup protection.";
+        nextStep = "Assess workload dependencies, validate the feasibility of warm standby architecture, and identify which services require accelerated recovery versus standard backup protection. A tiered protection model may be more efficient than a single DR pattern across all services.";
       } else {
-        nextStep = "Conduct a detailed DR architecture review to determine whether cross-site or cross-region failover is required to meet near-immediate recovery expectations for critical services.";
+        nextStep = "Conduct a detailed DR architecture review to determine whether cross-site or cross-region failover is required to meet near-immediate recovery expectations for critical services. Validate which systems truly justify this level of resilience before broad rollout.";
       }
 
       if (restoreTesting === "never" || restoreTesting === "occasional") {
@@ -619,23 +683,39 @@
       document.getElementById("protectedDataDisplay").textContent = `${protectedData} TB`;
 
       const badge = document.getElementById("statusBadge");
-      badge.textContent = badgeText;
+      badge.textContent = drModel;
       badge.style.background = badgeBg;
       badge.style.color = badgeColor;
 
       document.getElementById("scoreSummary").textContent =
-        `Estimated protected data baseline is ${protectedData} TB, with an advisory backup footprint of ${backupFootprint} TB based on current assumptions.`;
+        `Estimated protected data baseline is ${protectedData} TB, with an advisory backup footprint of ${backupFootprint} TB based on current assumptions across retention, growth, and data quality.`;
 
       document.getElementById("protectedDataMini").textContent = `${protectedData} TB`;
       document.getElementById("backupFootprintMini").textContent = `${backupFootprint} TB`;
       document.getElementById("darkDataMini").textContent = darkDataRisk;
       document.getElementById("drModelMini").textContent = drModel;
 
+      document.getElementById("protectedMetric").textContent = `${protectedData} TB`;
+      document.getElementById("footprintMetric").textContent = `${backupFootprint} TB`;
+      document.getElementById("darkMetric").textContent = darkDataRisk;
+      document.getElementById("drMetric").textContent = drModel;
+
+      applyDarkBadge(darkDataRisk);
+
       document.getElementById("meaningText").textContent = meaning;
-      document.getElementById("drModelText").textContent =
-        `${drModel} is the recommended DR pattern based on your selected RTO, RPO, criticality ratio, and recovery expectations.`;
+      document.getElementById("drModelText").textContent = drModelDetail;
       document.getElementById("darkDataText").textContent = darkDataText;
       document.getElementById("nextStepText").textContent = nextStep;
+
+      const warningEl = document.getElementById("maturityWarning");
+      if (maturityWarning) {
+        warningEl.style.display = "block";
+        warningEl.className = "warning-banner " + maturityWarning.level;
+        warningEl.textContent = maturityWarning.text;
+      } else {
+        warningEl.style.display = "none";
+        warningEl.textContent = "";
+      }
 
       document.getElementById("results").style.display = "block";
       window.scrollTo({
@@ -647,6 +727,20 @@
     function resetSizing() {
       document.getElementById("sizingForm").reset();
       document.getElementById("results").style.display = "none";
+
+      document.getElementById("protectedMetric").textContent = "0 TB";
+      document.getElementById("footprintMetric").textContent = "0 TB";
+      document.getElementById("darkMetric").textContent = "Pending";
+      document.getElementById("drMetric").textContent = "Pending";
+
+      const badge = document.getElementById("darkBadge");
+      badge.className = "mini-badge neutral";
+      badge.textContent = "Pending";
+
+      const warningEl = document.getElementById("maturityWarning");
+      warningEl.style.display = "none";
+      warningEl.textContent = "";
+
       window.scrollTo({
         top: document.getElementById("sizing-tool").offsetTop - 90,
         behavior: "smooth"
