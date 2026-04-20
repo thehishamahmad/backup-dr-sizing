@@ -491,4 +491,101 @@ footer {
   .domain-header {
     align-items: flex-start;
   }
+
+  .results-top-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .metric-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1rem 1rem 1.1rem;
+  }
+
+  .metric-label {
+    margin: 0 0 0.45rem;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+  }
+
+  .metric-card h3 {
+    margin: 0 0 0.45rem;
+    color: #f3f4f6;
+    font-size: 1.45rem;
+    line-height: 1.2;
+  }
+
+  .metric-sub {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+
+  .mini-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 88px;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    margin-top: 0.25rem;
+  }
+
+  .mini-badge.low {
+    background: rgba(16, 185, 129, 0.16);
+    color: #86efac;
+  }
+
+  .mini-badge.medium {
+    background: rgba(245, 158, 11, 0.16);
+    color: #fcd34d;
+  }
+
+  .mini-badge.high {
+    background: rgba(249, 115, 22, 0.16);
+    color: #fdba74;
+  }
+
+  .mini-badge.critical {
+    background: rgba(239, 68, 68, 0.16);
+    color: #fca5a5;
+  }
+
+  .mini-badge.neutral {
+    background: rgba(148, 163, 184, 0.16);
+    color: #cbd5e1;
+  }
+
+  .warning-banner {
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    border: 1px solid var(--border);
+  }
+
+  .warning-banner.moderate {
+    background: rgba(245, 158, 11, 0.10);
+    border-color: rgba(245, 158, 11, 0.25);
+    color: #fcd34d;
+  }
+
+  .warning-banner.critical {
+    background: rgba(239, 68, 68, 0.10);
+    border-color: rgba(239, 68, 68, 0.25);
+    color: #fca5a5;
+  }
+  
 }
