@@ -388,7 +388,11 @@
             <h2 class="big-score" id="protectedDataDisplay">0 TB</h2>
             <div id="statusBadge" class="status-badge">Pending</div>
             <p class="summary-text" id="scoreSummary">
-              Complete the sizing form to estimate protected data baseline and DR direction.
+            Complete the sizing form to estimate protected data baseline and DR direction.
+            </p>
+
+            <p class="footprint-note" id="footprintNote">
+            Backup footprint estimate will be shown based on the selected retention period.
             </p>
 
             <div class="domain-breakdown">
@@ -624,7 +628,17 @@
       badge.style.color = badgeColor;
 
       document.getElementById("scoreSummary").textContent =
-        `Estimated protected data baseline is ${protectedData} TB, with an advisory backup footprint of ${backupFootprint} TB based on current assumptions.`;
+  `    Estimated protected data baseline is ${protectedData} TB, with an advisory backup footprint of ${backupFootprint} TB based on current assumptions.`;
+
+      let retentionLabel = "";
+
+      if (retention === 1.2) retentionLabel = "7-day retention";
+      else if (retention === 1.8) retentionLabel = "30-day retention";
+      else if (retention === 2.5) retentionLabel = "90-day retention";
+      else if (retention === 3.5) retentionLabel = "1-year retention";
+
+      document.getElementById("footprintNote").textContent =
+       `${backupFootprint} TB estimated backup footprint based on ${retentionLabel}, the selected daily change rate, and current growth assumptions.`;
 
       document.getElementById("protectedDataMini").textContent = `${protectedData} TB`;
       document.getElementById("backupFootprintMini").textContent = `${backupFootprint} TB`;
